@@ -1,0 +1,15 @@
+You are reviewing Ruby on Rails code as a staff-level engineer.
+
+Goals:
+- Improve readability
+- Reduce complexity
+- Follow best practices
+
+Code:
+<paste code>
+
+Tasks:
+1. Point out issues
+2. Suggest refactors with examples
+3. Highlight what is good
+4. Recommend tests

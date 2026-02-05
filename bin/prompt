@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REGISTRY="$ROOT/prompts/registry.sh"
+
+if [[ ! -f "$REGISTRY" ]]; then
+  echo "Registry not found: $REGISTRY"
+  exit 1
+fi
+
+# shellcheck source=/dev/null
+source "$REGISTRY"
+
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+usage() {
+  cat <<'EOF'
+prompt - manage reusable prompt files (macOS pbcopy)
+
+Usage:
+  prompt list
+  prompt list bundles
+  prompt show <alias|path>
+  prompt copy <alias|path>
+  prompt bundle <bundle-name>
+  prompt bundle-copy <bundle-name>
+  prompt pick            # fzf picker (if installed), copies selection
+  prompt bundle-pick     # fzf picker for bundles, copies bundle
+
+Examples:
+  prompt list
+  prompt show rails:review
+  prompt copy rails:feature
+  prompt bundle rails:feature
+  prompt bundle-copy rails:review
+
+Notes:
+- Aliases are defined in prompts/registry.sh
+- pbcopy is used for clipboard (macOS)
+EOF
+}
+
+resolve_path() {
+  local key="$1"
+  if [[ -n "${PROMPTS[$key]+x}" ]]; then
+    echo "$ROOT/${PROMPTS[$key]}"
+  else
+    # treat as path relative to repo root if not absolute
+    if [[ "$key" = /* ]]; then
+      echo "$key"
+    else
+      echo "$ROOT/$key"
+    fi
+  fi
+}
+
+cat_file() {
+  local p="$1"
+  if [[ ! -f "$p" ]]; then
+    echo "File not found: $p" >&2
+    exit 1
+  fi
+  cat "$p"
+}
+
+copy_to_clipboard() {
+  if ! have_cmd pbcopy; then
+    echo "pbcopy not found (expected on macOS)." >&2
+    exit 1
+  fi
+  pbcopy
+}
+
+list_prompts() {
+  # sorted keys
+  for k in "${!PROMPTS[@]}"; do echo "$k -> ${PROMPTS[$k]}"; done | sort
+}
+
+list_bundles() {
+  for k in "${!BUNDLES[@]}"; do echo "$k -> ${BUNDLES[$k]}"; done | sort
+}
+
+build_bundle() {
+  local bundle="$1"
+  if [[ -z "${BUNDLES[$bundle]+x}" ]]; then
+    echo "Bundle not found: $bundle" >&2
+    echo "Try: prompt list bundles" >&2
+    exit 1
+  fi
+
+  local parts="${BUNDLES[$bundle]}"
+  local out=""
+  local item path
+
+  for item in $parts; do
+    path="$(resolve_path "$item")"
+    out+=$'\n'"### SOURCE: ${item} (${path#"$ROOT/"})"$'\n'
+    out+="$(cat_file "$path")"$'\n'
+  done
+
+  # trim leading newline for neatness
+  echo "${out#"$'\n'"}"
+}
+
+fzf_pick_prompt() {
+  if ! have_cmd fzf; then
+    echo "fzf not installed. Install with: brew install fzf" >&2
+    exit 1
+  fi
+
+  local choice
+  choice="$(list_prompts | fzf --prompt="Pick prompt: " | awk '{print $1}')"
+  [[ -z "${choice:-}" ]] && exit 0
+  resolve_path "$choice"
+}
+
+fzf_pick_bundle() {
+  if ! have_cmd fzf; then
+    echo "fzf not installed. Install with: brew install fzf" >&2
+    exit 1
+  fi
+
+  local choice
+  choice="$(list_bundles | fzf --prompt="Pick bundle: " | awk '{print $1}')"
+  [[ -z "${choice:-}" ]] && exit 0
+  echo "$choice"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  ""|-h|--help) usage ;;
+  list)
+    sub="${2:-}"
+    if [[ "$sub" == "bundles" ]]; then
+      list_bundles
+    else
+      list_prompts
+    fi
+    ;;
+  show)
+    target="${2:-}"
+    [[ -z "${target}" ]] && { usage; exit 1; }
+    path="$(resolve_path "$target")"
+    cat_file "$path"
+    ;;
+  copy)
+    target="${2:-}"
+    [[ -z "${target}" ]] && { usage; exit 1; }
+    path="$(resolve_path "$target")"
+    cat_file "$path" | copy_to_clipboard
+    echo "Copied: ${target} (${path#"$ROOT/"})"
+    ;;
+  bundle)
+    name="${2:-}"
+    [[ -z "${name}" ]] && { usage; exit 1; }
+    build_bundle "$name"
+    ;;
+  bundle-copy)
+    name="${2:-}"
+    [[ -z "${name}" ]] && { usage; exit 1; }
+    build_bundle "$name" | copy_to_clipboard
+    echo "Copied bundle: $name"
+    ;;
+  pick)
+    path="$(fzf_pick_prompt)"
+    cat_file "$path" | copy_to_clipboard
+    echo "Copied: ${path#"$ROOT/"}"
+    ;;
+  bundle-pick)
+    name="$(fzf_pick_bundle)"
+    build_bundle "$name" | copy_to_clipboard
+    echo "Copied bundle: $name"
+    ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage
+    exit 1
+    ;;
+esac

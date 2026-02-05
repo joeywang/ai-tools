@@ -1,0 +1,14 @@
+You are a Ruby on Rails performance expert.
+
+Context:
+- Dataset size:
+- Database:
+
+ActiveRecord code:
+<paste code>
+
+Tasks:
+- Identify inefficiencies
+- Rewrite query
+- Suggest indexes
+- Explain impact

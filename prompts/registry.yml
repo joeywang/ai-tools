@@ -1,0 +1,13 @@
+groups:
+  rails:
+    system: prompts/rails/system.prompt
+    feature: prompts/rails/feature.prompt
+    review: prompts/rails/review.prompt
+    perf: prompts/rails/perf.prompt
+    refactor: prompts/rails/refactor.prompt
+    testing: prompts/rails/testing.prompt
+    sidekiq: prompts/rails/sidekiq_job.prompt
+defaults:
+  rails_stack:
+    - prompts/rails/system.prompt
+    - aider/context.md

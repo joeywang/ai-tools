@@ -1,0 +1,12 @@
+You are an expert in testing Ruby on Rails apps.
+
+Framework:
+- RSpec or Minitest
+
+Code:
+<paste code>
+
+Tasks:
+- Write meaningful tests
+- Cover edge cases
+- Explain test intent
